@@ -1,8 +1,10 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using DotnetSpider.Common;
+using Microsoft.Extensions.Logging;
 
 namespace DotnetSpider.Downloader
 {
@@ -13,20 +15,22 @@ namespace DotnetSpider.Downloader
 	{
 		private readonly IProxySupplier _supplier;
 		private readonly List<Proxy> _proxyQueue = new List<Proxy>();
-		private readonly Dictionary<string, Proxy> _proxies = new Dictionary<string, Proxy>();
+		private readonly ConcurrentDictionary<string, Proxy> _proxies = new ConcurrentDictionary<string, Proxy>();
 		private bool _isDispose;
 		private readonly int _reuseInterval;
 		private readonly object _proxyQueueLocker = new object();
-
+		private readonly ILogger _logger;
 		public IProxyValidator ProxyValidator { get; set; } = new DefaultProxyValidator();
 
 		/// <summary>
 		/// 构造方法
 		/// </summary>
+		/// <param name="logger"></param>
 		/// <param name="supplier">代理提供接口</param>
 		/// <param name="reuseInterval">代理不被再次使用的间隔</param>
-		public HttpProxyPool(IProxySupplier supplier, int reuseInterval = 500)
+		public HttpProxyPool(ILogger logger, IProxySupplier supplier, int reuseInterval = 500)
 		{
+			_logger = logger;
 			_supplier = supplier ?? throw new SpiderException($"{nameof(supplier)} is null.");
 
 			_reuseInterval = reuseInterval;
@@ -161,6 +165,7 @@ namespace DotnetSpider.Downloader
 							{
 								if (await ProxyValidator.IsAvailable(item.Value.WebProxy))
 								{
+									_logger.LogInformation("");
 									item.Value.SetFailedNum(0);
 									item.Value.SetReuseTime(_reuseInterval);
 
@@ -169,7 +174,8 @@ namespace DotnetSpider.Downloader
 										_proxyQueue.Add(item.Value);
 									}
 
-									_proxies.Add(item.Key, item.Value);
+									_proxies.TryAdd(item.Key, item.Value);
+									_logger.LogInformation($"Acquired available proxy {proxy.Value.WebProxy.Address}");
 								}
 							}
 						}, proxy);

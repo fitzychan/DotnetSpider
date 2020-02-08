@@ -36,7 +36,7 @@ namespace DotnetSpider.DataFlow.Storage
     hash          varchar(48)                         not null,
     creation_time timestamp default CURRENT_TIMESTAMP null,
     primary key (spider_id, hash),
-    key CREATION_TIME_INDEX (`creation_time`)
+    index CREATION_TIME_INDEX (`creation_time`)
 );";
 			if (_executedCache.TryAdd(sql, new object()))
 			{
@@ -46,7 +46,7 @@ namespace DotnetSpider.DataFlow.Storage
 				}
 			}
 
-			sql = $"INSERT INTO {tableName} (`spider_id`, `hash`) VALUES (@spider_id, @hash);";
+			sql = $"INSERT IGNORE INTO {tableName} (`spider_id`, `hash`) VALUES (@spider_id, @hash);";
 			var item = new
 			{
 				spider_id = context.Response.Request.OwnerId,
